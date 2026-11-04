@@ -128,6 +128,9 @@ footer{padding-bottom:84px}
 .skip:focus{left:8px;top:8px}
 .nota{font-size:.85rem;color:var(--mu);margin:10px 0 0}
 @media(max-width:480px){.wa-float{padding:12px;font-size:0}.wa-float svg{width:24px;height:24px}nav{flex-wrap:wrap;overflow:visible}nav a{padding:8px 8px;font-size:.95rem}}
+.lnk{background:none;border:0;padding:0;margin-left:8px;color:var(--or);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+#grid>.empty{border:1px dashed var(--ln);border-radius:6px;text-align:center}
+@media(max-width:760px){#chips,#cg{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}.chip{flex:none}}
 </style>
 </head>
 <body>
@@ -506,17 +509,20 @@ const chip = (a, v, cur, label, n) => `<button class="chip" aria-pressed="${v ==
 function chips() {
   const pool = P.filter(x => inBrand(x)), cs = [...new Set(pool.map(x => x.c))];
   if (cg != "Todas" && !cs.includes(cg)) cg = "Todas";
-  $("#chips").innerHTML = '<b class="cl">Marca</b>' + chip("c", "Todas", cat, "Todas las marcas", P.length)
-    + BRS.filter(b => P.some(x => x.bs.includes(b))).map(b => chip("c", b, cat, b == "Otras" ? "Otras marcas" : b, P.filter(x => inBrand(x, b)).length)).join("");
-  $("#cg").innerHTML = '<b class="cl">Tipo</b>' + chip("g", "Todas", cg, "Todos los tipos", pool.length)
-    + cs.map(c => chip("g", c, cg, c, pool.filter(x => x.c == c).length)).join("");
+  $("#chips").innerHTML = '<b class="cl">Marca</b>' + BRS.filter(b => P.some(x => x.bs.includes(b))).map(b => chip("c", b, cat, b == "Otras" ? "Otras marcas" : b, P.filter(x => inBrand(x, b)).length)).join("");
+  $("#cg").innerHTML = '<b class="cl">Tipo</b>' + cs.map(c => chip("g", c, cg, c, pool.filter(x => x.c == c).length)).join("");
 }
 const row = (x, i) => `<div class="it"><div class="ph" role="img" aria-label="Ilustración de ${esc(x.n)}">${IMG[x.n] ? `<img src="${esc(IMG[x.n])}" alt="" loading="lazy">` : `<svg viewBox="0 0 48 48" width="54" height="54" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[K(x)]}</svg>`}</div><div class="nm"><b>${esc(x.n)}</b>${x.k ? `<small>${esc(x.k)}</small>` : ""}</div>${PRECIOS ? `<span class="pr">${x.p ? money(x.p) : "A cotizar"}</span>` : ""}<button class="btn" data-a="${i}">${BTN}</button></div>`;
 function grid() {
   const words = $("#q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (cat == "Todas" && cg == "Todas" && !words.length) {  // sin elegir nada, la lista no se despliega
+    $("#src").textContent = P.length + " repuestos en el catálogo.";
+    $("#grid").innerHTML = '<p class="empty">Elige una marca o un tipo de repuesto para ver la lista, o escribe en el buscador.</p>';
+    return;
+  }
   const L = P.map((x, i) => [x, i]).filter(([x]) => inBrand(x) && (cg == "Todas" || x.c == cg)
     && words.every(w => (x.n + " " + x.k + " " + x.c + " " + x.bs.join(" ")).toLowerCase().includes(w)));
-  $("#src").textContent = L.length + (L.length == 1 ? " repuesto" : " repuestos") + (PRECIOS ? ". Precios en pesos colombianos; confirma la disponibilidad por WhatsApp." : ". Agrega los que necesites y pide tu cotización por WhatsApp: te respondemos con precio y disponibilidad.");
+  $("#src").innerHTML = L.length + (L.length == 1 ? " repuesto" : " repuestos") + (PRECIOS ? ". Precios en pesos colombianos; confirma la disponibilidad por WhatsApp." : ". Agrega los que necesites y pide tu cotización por WhatsApp: te respondemos con precio y disponibilidad.") + ' <button class="lnk" data-x="1">Limpiar selección</button>';
   const g = {};
   L.forEach(([x, i]) => (g[x.c] = g[x.c] || []).push([x, i]));
   $("#grid").innerHTML = L.length
@@ -525,6 +531,8 @@ function grid() {
 }
 
 /* ===== ENLACES, COTIZADOR Y EVENTOS ===== */
+// Tras elegir una marca o un tipo, acerca la lista a la vista (importante en celular)
+const mostrar = () => { if ($("#src").getBoundingClientRect().top > innerHeight * .6) $("#src").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); };
 $$("[data-wa]").forEach(a=>a.href=WA+"?text="+encodeURIComponent("Hola Tribi, quiero una cotización en Moto TRiBi."));
 $$("[data-tel]").forEach(a=>a.href="tel:+"+TEL);
 $$("[data-map]").forEach(a=>a.href=MAPS);
@@ -541,13 +549,16 @@ $("#send").href=WA+"?text="+encodeURIComponent(m)}
 function draw(){const ks=Object.keys(cart);let t=0,n=0;
 $("#cart").innerHTML=ks.length?ks.map(k=>{const x=P[k],q=cart[k];t+=x.p*q;n+=q;return `<div class="li"><span>${x.n}<br><small>${PRECIOS?(x.p?money(x.p)+" c/u":"Precio a cotizar"):esc(x.c)}</small></span><button class="q" data-q="${k}:-1" aria-label="Quitar uno">−</button><b>${q}</b><button class="q" data-q="${k}:1" aria-label="Agregar uno">+</button></div>`}).join(""):'<p class="sub">Aún no has agregado nada. Elige repuestos en la lista de precios o describe lo que necesitas.</p>';
 $("#tot").textContent=money(t);$("#nc").textContent=n?" ("+n+")":"";link()}
-document.addEventListener("click",e=>{const b=e.target.closest("[data-c],[data-g],[data-a],[data-q]");if(!b)return;
-if(b.dataset.c){cat=b.dataset.c;cg="Todas";chips();grid()}else if(b.dataset.g){cg=b.dataset.g;chips();grid()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-c],[data-g],[data-x],[data-a],[data-q]");if(!b)return;
+if(b.dataset.c){cat=cat==b.dataset.c?"Todas":b.dataset.c;chips();grid();mostrar()}else if(b.dataset.g){cg=cg==b.dataset.g?"Todas":b.dataset.g;chips();grid();mostrar()}else if(b.dataset.x){cat=cg="Todas";$("#q").value="";chips();grid()}
 else if(b.dataset.a){const k=b.dataset.a;cart[k]=(cart[k]||0)+1;draw();b.textContent="Agregado ✓";setTimeout(()=>b.textContent=BTN,1200)}
 else{const[k,d]=b.dataset.q.split(":");cart[k]+=+d;if(cart[k]<1)delete cart[k];draw()}});
 $$("#cotizar input,#cotizar textarea").forEach(i=>i.oninput=()=>{$("#msg").textContent="";link()});
 $("#send").onclick=e=>{const ok=$("#nm").value.trim()&&$("#mt").value.trim()&&(Object.keys(cart).length||$("#dt").value.trim());
 $("#msg").textContent=ok?"":"Escribe tu nombre y tu moto, y elige un repuesto o describe lo que necesitas.";if(!ok)e.preventDefault()};
+// Compensa la altura real del encabezado fijo al saltar a un apartado (en celular el menú puede ocupar dos líneas)
+const ajustarScroll = () => { document.documentElement.style.scrollPaddingTop = `calc(env(safe-area-inset-top,0px) + ${$("header").offsetHeight + 12}px)`; };
+ajustarScroll(); addEventListener("resize", ajustarScroll); addEventListener("load", ajustarScroll);
 $("#totbox").hidden=!PRECIOS;
 $("#q").oninput=grid;
 $("#fecha").textContent="Actualizado el "+new Date(CATALOGO_FECHA+"T12:00:00").toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"})+".";
